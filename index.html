@@ -6180,12 +6180,12 @@ render();
     $("mesCloudKey").value = c.key || "";
     $("mesCloudEmail").value = session && session.user && session.user.email || "";
     $("mesCloudPassword").value = "";
-    layer.hidden = false;
+    layer.hidden = false;layer.style.display = "grid";
     document.body.classList.add("modal-open");
     refreshControls();
     status(session ? "Signed in on this device. Choose Upload or Restore." : "Set connection details and sign in to continue.");
   }
-  function closeDialog() { layer.hidden = true; document.body.classList.remove("modal-open"); }
+  function closeDialog() { layer.hidden = true;layer.style.display = "none"; document.body.classList.remove("modal-open"); }
   openButton.addEventListener("click", openDialog);
   layer.querySelector("[data-close]").addEventListener("click", closeDialog);
   layer.addEventListener("click", function (event) { if (event.target === layer) closeDialog(); });
