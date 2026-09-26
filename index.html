@@ -631,11 +631,11 @@ tfoot td { background: var(--navy); color: #fff; font-weight: 800; }
         </div>
         <p class="eyebrow">START HERE</p>
         <h2>Upload an Excel report</h2>
-        <p class="upload-copy">Choose an <strong>.xlsx</strong> or <strong>.xls</strong> file. All data is processed directly in your browser and is never sent to a server.</p>
+        <p class="upload-copy">Choose an <strong>.xlsx</strong> or <strong>.xls</strong> file. Data is processed in your browser. Optional cloud backup only runs when you sign in and tap Upload or Restore.</p>
         <label class="primary-button" for="excelFile">Choose Excel file</label>
         <button id="recentEmptyButton" class="text-button is-hidden" type="button">Open recent data</button>
         <input id="excelFile" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
-        <div class="privacy-note"><span aria-hidden="true">✓</span> Offline-capable · No login · Data stays on this device</div>
+        <div class="privacy-note"><span aria-hidden="true">✓</span> Offline-capable · Optional cloud sync · You choose when to transfer data</div>
       </div>
     </section>
 
@@ -6055,5 +6055,272 @@ render();
 })();
 
 </script>
+  <script>
+(function () {
+  "use strict";
+  var CONFIG_KEY = "mes-cloud-config-v1";
+  var AUTH_KEY = "mes-cloud-auth-v1";
+  var TABLE = "mes_daily_sync";
+  var DEFAULT_URL = "https://rewbfhiathnzstgfnfix.supabase.co";
+  var root = window;
+
+  var style = document.createElement("style");
+  style.textContent = ".mes-cloud-layer{position:fixed;inset:0;z-index:1000;background:rgba(8,20,30,.72);display:grid;place-items:center;padding:16px}.mes-cloud-dialog{width:min(560px,100%);max-height:90vh;overflow:auto;background:#fff;border:1px solid #cbd9e1;border-radius:20px;padding:22px;box-shadow:0 20px 60px #07152366;color:#203848}.mes-cloud-dialog h2{margin:0 0 6px;color:#17364d}.mes-cloud-dialog p{line-height:1.5;color:#617787}.mes-cloud-dialog label{display:grid;gap:6px;margin:12px 0;color:#29485b;font-size:13px;font-weight:700}.mes-cloud-dialog input{width:100%;min-height:44px;border:1px solid #c6d5de;border-radius:10px;padding:9px 12px;background:#f8fbfc;color:#18374d}.mes-cloud-actions{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}.mes-cloud-actions button,.mes-cloud-close{min-height:42px;border:1px solid #bdd0dc;border-radius:10px;padding:8px 13px;background:#eaf3f7;color:#17364d;font-weight:800}.mes-cloud-actions button.mes-cloud-primary{background:#193d56;border-color:#193d56;color:#fff}.mes-cloud-actions button:disabled{opacity:.5}.mes-cloud-status{min-height:26px;padding:10px 12px;border-radius:10px;background:#f0f5f7;color:#334f61;overflow-wrap:anywhere}.mes-cloud-note{font-size:12px!important}.mes-cloud-top{display:flex;align-items:center;justify-content:space-between;gap:12px}.mes-cloud-dialog [hidden]{display:none!important}@media(max-width:520px){.mes-cloud-dialog{padding:16px}.mes-cloud-actions>*{flex:1 1 45%}}";
+  document.head.appendChild(style);
+
+  var headerActions = document.querySelector(".header-actions");
+  if (!headerActions) return;
+  var openButton = document.createElement("button");
+  openButton.id = "cloudSyncHeaderButton";
+  openButton.className = "header-action";
+  openButton.type = "button";
+  openButton.textContent = "Cloud sync";
+  openButton.setAttribute("aria-haspopup", "dialog");
+  headerActions.insertBefore(openButton, document.getElementById("recentHeaderButton") || null);
+
+  var layer = document.createElement("div");
+  layer.className = "mes-cloud-layer";
+  layer.hidden = true;
+  layer.innerHTML = '<section class="mes-cloud-dialog" role="dialog" aria-modal="true" aria-labelledby="mesCloudTitle"><div class="mes-cloud-top"><div><p class="eyebrow">OPTIONAL · MANUAL TRANSFER</p><h2 id="mesCloudTitle">Cloud sync</h2></div><button type="button" class="mes-cloud-close" data-close>Close</button></div><p>Report files and app settings stay on this device unless you choose <b>Upload to cloud</b>. On another device, sign in and choose <b>Restore from cloud</b>. Upload replaces the current cloud snapshot; restore merges report files and restores saved app settings.</p><label>Supabase Project URL<input id="mesCloudUrl" type="url" autocomplete="url" inputmode="url" spellcheck="false"></label><label>Publishable key<input id="mesCloudKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"></label><div class="mes-cloud-actions"><button type="button" id="mesCloudSaveConfig">Save connection</button></div><hr><label>Email<input id="mesCloudEmail" type="email" autocomplete="username" inputmode="email"></label><label>Password<input id="mesCloudPassword" type="password" autocomplete="current-password"></label><div class="mes-cloud-actions"><button type="button" id="mesCloudSignIn" class="mes-cloud-primary">Sign in</button><button type="button" id="mesCloudSignUp">Create account</button><button type="button" id="mesCloudSignOut" hidden>Sign out</button></div><div class="mes-cloud-actions"><button type="button" id="mesCloudUpload" class="mes-cloud-primary" disabled>Upload to cloud</button><button type="button" id="mesCloudRestore" disabled>Restore from cloud</button></div><div id="mesCloudStatus" class="mes-cloud-status" role="status" aria-live="polite">Set connection details and sign in to continue.</div><p class="mes-cloud-note">Use only the Publishable key here. Never enter a Secret / service_role key. Each account can access only its own cloud backup.</p></section>';
+  document.body.appendChild(layer);
+
+  var $ = function (id) { return document.getElementById(id); };
+  var statusNode = $("mesCloudStatus");
+  function status(message) { statusNode.textContent = message; }
+  function readConfig() {
+    try { return JSON.parse(localStorage.getItem(CONFIG_KEY) || "{}"); } catch (_) { return {}; }
+  }
+  function readSession() {
+    try { return JSON.parse(localStorage.getItem(AUTH_KEY) || "null"); } catch (_) { return null; }
+  }
+  function setSession(value) {
+    if (value) localStorage.setItem(AUTH_KEY, JSON.stringify(value));
+    else localStorage.removeItem(AUTH_KEY);
+    refreshControls();
+  }
+  function projectUrl() { return String($("mesCloudUrl").value || "").trim().replace(/\/+$/, ""); }
+  function publishableKey() { return String($("mesCloudKey").value || "").trim(); }
+  function isSecretKey(key) {
+    if (/^sb_secret_/i.test(key) || /service_role/i.test(key)) return true;
+    var parts = key.split(".");
+    if (parts.length === 3) {
+      try {
+        var payload = JSON.parse(decodeURIComponent(escape(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")))));
+        if (payload && payload.role === "service_role") return true;
+      } catch (_) {}
+    }
+    return false;
+  }
+  function saveConfig() {
+    var url = projectUrl(), key = publishableKey(), parsed;
+    try { parsed = new URL(url); } catch (_) { throw new Error("Enter a valid Supabase Project URL."); }
+    if (parsed.protocol !== "https:" && parsed.hostname !== "localhost") throw new Error("Project URL must use HTTPS.");
+    if (!key) throw new Error("Paste the Publishable key from Supabase.");
+    if (isSecretKey(key)) throw new Error("That is a Secret key. Use the Publishable key only.");
+    localStorage.setItem(CONFIG_KEY, JSON.stringify({ url: url, key: key }));
+    return { url: url, key: key };
+  }
+  function config() {
+    var c = readConfig();
+    if (!c.url || !c.key) throw new Error("Save the Project URL and Publishable key first.");
+    return c;
+  }
+  function api(path) { return config().url + path; }
+  async function responseJson(response) {
+    var body = null;
+    try { body = await response.json(); } catch (_) {}
+    if (!response.ok) {
+      var message = body && (body.msg || body.message || body.error_description || body.error);
+      if (response.status === 401) message = "Email or password was not accepted, or the session expired.";
+      throw new Error(message || ("Request failed (" + response.status + ")."));
+    }
+    return body || {};
+  }
+  function rememberAuth(data) {
+    var session = {
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      expires_at: Number(data.expires_at) || Math.floor(Date.now() / 1000) + (Number(data.expires_in) || 3600),
+      user: data.user || (readSession() || {}).user
+    };
+    if (!session.access_token || !session.refresh_token) throw new Error("Supabase did not return a complete sign-in session.");
+    setSession(session);
+    return session;
+  }
+  async function currentSession() {
+    var session = readSession();
+    if (!session || !session.access_token) return null;
+    if (Number(session.expires_at || 0) < Math.floor(Date.now() / 1000) + 60) {
+      if (!session.refresh_token) { setSession(null); return null; }
+      var refreshResponse = await fetch(api("/auth/v1/token?grant_type=refresh_token"), {
+        method: "POST", headers: { "apikey": config().key, "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: session.refresh_token })
+      });
+      try { session = rememberAuth(await responseJson(refreshResponse)); }
+      catch (error) { setSession(null); throw error; }
+    }
+    return session;
+  }
+  function withBusy(buttons, fn) {
+    buttons.forEach(function (b) { b.disabled = true; });
+    return Promise.resolve().then(fn).catch(function (error) { status(error.message || "Cloud action failed."); }).finally(function () { buttons.forEach(function (b) { b.disabled = false; }); refreshControls(); });
+  }
+  function refreshControls() {
+    var session = readSession();
+    var signedIn = !!(session && session.access_token);
+    $("mesCloudUpload").disabled = !signedIn;
+    $("mesCloudRestore").disabled = !signedIn;
+    $("mesCloudSignOut").hidden = !signedIn;
+    $("mesCloudSignIn").disabled = signedIn;
+    $("mesCloudSignUp").disabled = signedIn;
+  }
+  function openDialog() {
+    var c = readConfig(), session = readSession();
+    $("mesCloudUrl").value = c.url || DEFAULT_URL;
+    $("mesCloudKey").value = c.key || "";
+    $("mesCloudEmail").value = session && session.user && session.user.email || "";
+    $("mesCloudPassword").value = "";
+    layer.hidden = false;
+    document.body.classList.add("modal-open");
+    refreshControls();
+    status(session ? "Signed in on this device. Choose Upload or Restore." : "Set connection details and sign in to continue.");
+  }
+  function closeDialog() { layer.hidden = true; document.body.classList.remove("modal-open"); }
+  openButton.addEventListener("click", openDialog);
+  layer.querySelector("[data-close]").addEventListener("click", closeDialog);
+  layer.addEventListener("click", function (event) { if (event.target === layer) closeDialog(); });
+  document.addEventListener("keydown", function (event) { if (event.key === "Escape" && !layer.hidden) closeDialog(); });
+
+  $("mesCloudSaveConfig").addEventListener("click", function () {
+    try { saveConfig(); status("Connection saved on this device. Now sign in or create your account."); }
+    catch (error) { status(error.message); }
+  });
+  $("mesCloudSignUp").addEventListener("click", function () {
+    withBusy([$("mesCloudSignUp"), $("mesCloudSignIn")], async function () {
+      var c = saveConfig(), email = $("mesCloudEmail").value.trim(), password = $("mesCloudPassword").value;
+      if (!email || !password) throw new Error("Enter your email and password.");
+      if (password.length < 8) throw new Error("Use at least 8 characters for a new password.");
+      var response = await fetch(c.url + "/auth/v1/signup?redirect_to=" + encodeURIComponent(location.origin + location.pathname), { method: "POST", headers: { "apikey": c.key, "Content-Type": "application/json" }, body: JSON.stringify({ email: email, password: password }) });
+      var result = await responseJson(response);
+      if (result.access_token) { rememberAuth(result); status("Account created and signed in. You can upload this device's data to cloud."); }
+      else status("Account request sent. Check your email, confirm the account, then return to this app and sign in.");
+    });
+  });
+  $("mesCloudSignIn").addEventListener("click", function () {
+    withBusy([$("mesCloudSignIn"), $("mesCloudSignUp")], async function () {
+      var c = saveConfig(), email = $("mesCloudEmail").value.trim(), password = $("mesCloudPassword").value;
+      if (!email || !password) throw new Error("Enter your email and password.");
+      var response = await fetch(c.url + "/auth/v1/token?grant_type=password", { method: "POST", headers: { "apikey": c.key, "Content-Type": "application/json" }, body: JSON.stringify({ email: email, password: password }) });
+      rememberAuth(await responseJson(response));
+      status("Signed in. Choose Upload to save this device to cloud, or Restore to bring the cloud backup here.");
+    });
+  });
+  $("mesCloudSignOut").addEventListener("click", function () {
+    withBusy([$("mesCloudSignOut")], async function () {
+      var session = readSession();
+      try {
+        if (session && session.access_token) await fetch(api("/auth/v1/logout"), { method: "POST", headers: { "apikey": config().key, "Authorization": "Bearer " + session.access_token } });
+      } finally {
+        setSession(null);
+      }
+      status("Signed out on this device.");
+    });
+  });
+
+  async function makeSnapshot() {
+    var storage = root.MESStorage;
+    if (!storage) throw new Error("The saved report storage module is unavailable.");
+    await storage.init();
+    if (!storage.isPersistent()) throw new Error("This browser cannot access the saved report database. Open Recent Data once, then try again.");
+    var metadata = await storage.listMetadata(), reports = [];
+    for (var i = 0; i < metadata.length; i++) {
+      var dataset = await storage.getDataset(metadata[i].id);
+      if (dataset) reports.push(dataset);
+    }
+    var localData = {};
+    for (var j = 0; j < localStorage.length; j++) {
+      var key = localStorage.key(j);
+      if (key && key.indexOf("mes-") === 0 && key !== CONFIG_KEY && key !== AUTH_KEY) localData[key] = localStorage.getItem(key);
+    }
+    var snapshot = { format: "mes-daily-cloud", schemaVersion: 1, savedAt: new Date().toISOString(), reports: reports, localData: localData };
+    var bytes = new Blob([JSON.stringify(snapshot)]).size;
+    if (bytes > 25 * 1024 * 1024) throw new Error("This backup is larger than 25 MB. Keep fewer old reports on this device and try again.");
+    return snapshot;
+  }
+  async function getRemote(session) {
+    var url = api("/rest/v1/" + TABLE + "?select=data,updated_at&user_id=eq." + encodeURIComponent(session.user.id));
+    var response = await fetch(url, { headers: { "apikey": config().key, "Authorization": "Bearer " + session.access_token } });
+    var rows = await responseJson(response);
+    return rows && rows[0] || null;
+  }
+  $("mesCloudUpload").addEventListener("click", function () {
+    withBusy([$("mesCloudUpload"), $("mesCloudRestore")], async function () {
+      var session = await currentSession(); if (!session || !session.user || !session.user.id) throw new Error("Sign in again before uploading.");
+      var old = await getRemote(session);
+      if (old && !confirm("A cloud backup from " + new Date(old.updated_at).toLocaleString() + " already exists. Uploading replaces that cloud snapshot with this device's current data. Continue?")) return;
+      var snapshot = await makeSnapshot();
+      status("Uploading " + snapshot.reports.length + " report(s)…");
+      var response = await fetch(api("/rest/v1/" + TABLE + "?on_conflict=user_id"), {
+        method: "POST", headers: { "apikey": config().key, "Authorization": "Bearer " + session.access_token, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=minimal" },
+        body: JSON.stringify({ user_id: session.user.id, data: snapshot, updated_at: new Date().toISOString() })
+      });
+      await responseJson(response);
+      status("Cloud backup saved: " + snapshot.reports.length + " report(s), " + new Date(snapshot.savedAt).toLocaleString() + ". This does not delete local data.");
+    });
+  });
+  $("mesCloudRestore").addEventListener("click", function () {
+    withBusy([$("mesCloudUpload"), $("mesCloudRestore")], async function () {
+      var session = await currentSession(); if (!session || !session.user || !session.user.id) throw new Error("Sign in again before restoring.");
+      var row = await getRemote(session);
+      if (!row || !row.data || row.data.format !== "mes-daily-cloud" || row.data.schemaVersion !== 1) throw new Error("No compatible cloud backup was found for this account.");
+      var backup = row.data;
+      if (!Array.isArray(backup.reports) || !backup.localData || typeof backup.localData !== "object") throw new Error("The cloud backup is incomplete; local data was not changed.");
+      if (!confirm("Restore the cloud backup saved " + new Date(row.updated_at).toLocaleString() + "? It will add or update " + backup.reports.length + " report(s), replace this device's saved MES settings and date selections, then reload the app.")) return;
+      var storage = root.MESStorage;
+      if (!storage) throw new Error("The saved report storage module is unavailable.");
+      await storage.init();
+      if (!storage.isPersistent()) throw new Error("This browser cannot access the saved report database.");
+      for (var i = 0; i < backup.reports.length; i++) {
+        var dataset = backup.reports[i];
+        if (!dataset || !dataset.id || !(dataset.fullParsed || dataset.parsed)) throw new Error("A report in the cloud backup is invalid; local data was not changed.");
+      }
+      status("Restoring " + backup.reports.length + " report(s)…");
+      for (var j = 0; j < backup.reports.length; j++) await storage.putDataset(backup.reports[j], { writeFullData: true });
+      var oldData = {};
+      for (var k = 0; k < localStorage.length; k++) { var oldKey = localStorage.key(k); if (oldKey && oldKey.indexOf("mes-") === 0 && oldKey !== CONFIG_KEY && oldKey !== AUTH_KEY) oldData[oldKey] = localStorage.getItem(oldKey); }
+      try {
+        Object.keys(oldData).forEach(function (key) { localStorage.removeItem(key); });
+        Object.keys(backup.localData).forEach(function (key) { if (key.indexOf("mes-") === 0 && key !== CONFIG_KEY && key !== AUTH_KEY && typeof backup.localData[key] === "string") localStorage.setItem(key, backup.localData[key]); });
+      } catch (error) {
+        Object.keys(backup.localData).forEach(function (key) { if (key.indexOf("mes-") === 0 && key !== CONFIG_KEY && key !== AUTH_KEY) localStorage.removeItem(key); });
+        Object.keys(oldData).forEach(function (key) { localStorage.setItem(key, oldData[key]); });
+        throw new Error("The backup could not fit this browser's settings storage. Previous settings were restored.");
+      }
+      status("Restore complete. Reloading…");
+      location.reload();
+    });
+  });
+
+  function restoreEmailConfirmation() {
+    if (!location.hash || location.hash.length < 2) return;
+    var params = new URLSearchParams(location.hash.slice(1));
+    var access = params.get("access_token"), refresh = params.get("refresh_token");
+    if (params.get("error_description")) { status(decodeURIComponent(params.get("error_description").replace(/\+/g, " "))); history.replaceState(null, "", location.pathname + location.search); return; }
+    if (access && refresh) {
+      var cfg = readConfig();
+      if (!cfg.url || !cfg.key) { history.replaceState(null, "", location.pathname + location.search); openDialog(); status("Email confirmed. Save the Project URL and Publishable key on this device, then sign in."); return; }
+      var expiresIn = Number(params.get("expires_in")) || 3600;
+      var session = { access_token: access, refresh_token: refresh, expires_at: Math.floor(Date.now() / 1000) + expiresIn, user: null };
+      fetch(cfg.url.replace(/\/+$/, "") + "/auth/v1/user", { headers: { "apikey": cfg.key, "Authorization": "Bearer " + access } }).then(function (r) { return responseJson(r); }).then(function (user) { session.user = user; setSession(session); history.replaceState(null, "", location.pathname + location.search); openDialog(); status("Email confirmed. Signed in on this device."); }).catch(function () { history.replaceState(null, "", location.pathname + location.search); openDialog(); status("Email link received. Now sign in with your email and password."); });
+    }
+  }
+  var saved = readConfig();
+  if (!saved.url || !saved.key) { saved.url = saved.url || DEFAULT_URL; }
+  refreshControls();
+  restoreEmailConfirmation();
+  root.MESCloudSync = { open: openDialog, snapshot: makeSnapshot };
+})();
+
+  </script>
 </body>
 </html>
