@@ -8,7 +8,7 @@
   <meta name="application-name" content="MES Daily Web">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>MES Daily Graft v1.8.51</title>
+  <title>MES Daily Graft v1.8.53</title>
   <style>
 :root {
   --navy: #17324d;
@@ -608,7 +608,7 @@ tfoot td { background: var(--navy); color: #fff; font-weight: 800; }
 <script>
 (function(){
   "use strict";
-  var params=new URLSearchParams(location.search),token=params.get("share");
+  var params=new URLSearchParams(location.search),token=params.get("share"),deviceStorage=window.localStorage;
   window.MESCloudShareReady=Promise.resolve(false);
   if(!token)return;
   window.MESSharedMode=true;
@@ -618,7 +618,29 @@ tfoot td { background: var(--navy); color: #fff; font-weight: 800; }
   var proxy={get length(){var n=0;for(var i=0;i<session.length;i++)if(session.key(i).indexOf(prefix)===0)n++;return n;},key:function(index){var a=[];for(var i=0;i<session.length;i++){var k=session.key(i);if(k.indexOf(prefix)===0)a.push(k.slice(prefix.length));}return a[index]||null;},getItem:function(k){return session.getItem(prefix+k);},setItem:function(k,v){session.setItem(prefix+k,String(v));},removeItem:function(k){session.removeItem(prefix+k);},clear:function(){for(var i=session.length-1;i>=0;i--){var k=session.key(i);if(k.indexOf(prefix)===0)session.removeItem(k);}}};
   try{Object.defineProperty(window,"localStorage",{configurable:true,value:proxy});}catch(e){}
   var shareKey=new URLSearchParams(location.hash.slice(1)).get("mesShareKey");
-  function banner(message){var show=function(){var old=document.getElementById("mesSharedBanner");if(old)old.remove();var b=document.createElement("div");b.id="mesSharedBanner";b.setAttribute("role","status");b.textContent=message;var h=document.querySelector(".app-header");if(h)h.insertAdjacentElement("afterend",b);else document.body.prepend(b);document.body.classList.add("mes-shared-view");};if(document.body)show();else document.addEventListener("DOMContentLoaded",show,{once:true});}
+  function banner(message){var show=function(){var old=document.getElementById("mesSharedBanner");if(old)old.remove();var b=document.createElement("div");b.id="mesSharedBanner";b.setAttribute("role","status");var text=document.createElement("div");text.textContent=message;b.appendChild(text);var h=document.querySelector(".app-header");if(h)h.insertAdjacentElement("afterend",b);else document.body.prepend(b);document.body.classList.add("mes-shared-view");return b;};return document.body?show():new Promise(function(resolve){document.addEventListener("DOMContentLoaded",function(){resolve(show());},{once:true});});}
+  async function showAdminLogin(){
+    var b=await banner("Shared MES Daily · Read only · Only the cloud owner can sign in to upload reports.");
+    var button=document.createElement("button");button.type="button";button.textContent="Admin log masuk";button.style="margin:10px auto 0;padding:9px 18px;border:0;border-radius:9px;background:#193d56;color:#fff;font-weight:700";b.appendChild(button);
+    button.addEventListener("click",function(){
+      if(document.getElementById("mesSharedAdminForm"))return;
+      var form=document.createElement("form");form.id="mesSharedAdminForm";form.style="max-width:420px;margin:12px auto 2px;text-align:left";
+      form.innerHTML='<label style="display:block;margin:8px 0">Admin email<input name="email" type="email" autocomplete="username" required style="display:block;width:100%;padding:10px;border:1px solid #b9cad4;border-radius:8px"></label><label style="display:block;margin:8px 0">Password<input name="password" type="password" autocomplete="current-password" required style="display:block;width:100%;padding:10px;border:1px solid #b9cad4;border-radius:8px"></label><button type="submit" style="padding:10px 18px;border:0;border-radius:8px;background:#193d56;color:white;font-weight:700">Sign in &amp; upload</button><div data-admin-status style="margin-top:8px"></div>';
+      b.appendChild(form);
+      form.addEventListener("submit",async function(event){event.preventDefault();var status=form.querySelector("[data-admin-status]"),submit=form.querySelector("button[type=submit]"),email=form.elements.email.value.trim(),password=form.elements.password.value;submit.disabled=true;status.textContent="Checking owner account…";
+        try{
+          var authResponse=await fetch("https://rewbfhiathnzstgfnfix.supabase.co/auth/v1/token?grant_type=password",{method:"POST",headers:{apikey:shareKey,"Content-Type":"application/json"},body:JSON.stringify({email:email,password:password})}),auth;
+          try{auth=await authResponse.json();}catch(e){auth=null;}
+          if(!authResponse.ok||!auth||!auth.access_token||!auth.user||!auth.user.id)throw Error("Sign-in failed. Check the email and password.");
+          var ownerUrl="https://rewbfhiathnzstgfnfix.supabase.co/rest/v1/mes_daily_sync?select=share_token&user_id=eq."+encodeURIComponent(auth.user.id),ownerResponse=await fetch(ownerUrl,{headers:{apikey:shareKey,Authorization:"Bearer "+auth.access_token}}),ownerRows=await ownerResponse.json();
+          if(!ownerResponse.ok||!Array.isArray(ownerRows)||!ownerRows.some(function(row){return row.share_token===token;}))throw Error("This account does not own this shared link. It remains read-only.");
+          deviceStorage.setItem("mes-cloud-config-v1",JSON.stringify({url:"https://rewbfhiathnzstgfnfix.supabase.co",key:shareKey}));
+          deviceStorage.setItem("mes-cloud-auth-v1",JSON.stringify({access_token:auth.access_token,refresh_token:auth.refresh_token,expires_at:Number(auth.expires_at)||Math.floor(Date.now()/1000)+(Number(auth.expires_in)||3600),user:auth.user}));
+          status.textContent="Owner confirmed. Opening the admin workspace…";var next=new URL(location.href);next.searchParams.delete("share");next.searchParams.set("admin","1");next.hash="";location.href=next.toString();
+        }catch(error){status.textContent=error.message||"Could not sign in.";submit.disabled=false;}
+      });
+    });
+  }
   window.MESCloudShareReady=(async function(){
     if(!shareKey)throw Error("Shared link is missing its public key. Ask the owner to copy a fresh link.");
     var response=await fetch("https://rewbfhiathnzstgfnfix.supabase.co/rest/v1/rpc/mes_daily_get_shared_backup",{method:"POST",headers:{"apikey":shareKey,"Authorization":"Bearer "+shareKey,"Content-Type":"application/json"},body:JSON.stringify({p_token:token})});
@@ -632,7 +654,7 @@ tfoot td { background: var(--navy); color: #fff; font-weight: 800; }
     await window.MESStorage.init();
     for(var i=0;i<backup.reports.length;i++)await window.MESStorage.putDataset(backup.reports[i],{writeFullData:true});
     Object.keys(backup.localData||{}).forEach(function(k){if(k.indexOf("mes-")===0&&!/^mes-cloud-(config|auth)-v1$/.test(k)&&typeof backup.localData[k]==="string")window.localStorage.setItem(k,backup.localData[k]);});
-    banner("Shared MES Daily · Read only · Data refreshed from the owner's cloud copy. Changes on this browser stay local.");
+    await showAdminLogin();
     return true;
   })().catch(function(e){banner("Could not open shared data: "+(e.message||e));return false;});
 })();
@@ -666,11 +688,11 @@ tfoot td { background: var(--navy); color: #fff; font-weight: 800; }
         </div>
         <p class="eyebrow">START HERE</p>
         <h2>Upload an Excel report</h2>
-        <p class="upload-copy">Choose an <strong>.xlsx</strong> or <strong>.xls</strong> file. Data is processed in your browser. Optional cloud backup only runs when you sign in and tap Upload or Restore.</p>
+        <p class="upload-copy">Choose an <strong>.xlsx</strong> or <strong>.xls</strong> file. Data is processed in your browser. When signed in, reports and settings sync with cloud whenever this device is online.</p>
         <label class="primary-button" for="excelFile">Choose Excel file</label>
         <button id="recentEmptyButton" class="text-button is-hidden" type="button">Open recent data</button>
         <input id="excelFile" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
-        <div class="privacy-note"><span aria-hidden="true">✓</span> Offline-capable · Optional cloud sync · You choose when to transfer data</div>
+        <div class="privacy-note"><span aria-hidden="true">✓</span> Offline-capable · Automatic cloud sync when online · Manual sync is available in Cloud status</div>
       </div>
     </section>
 
@@ -5875,6 +5897,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     await readRecentDatasets();
   }
 
+  window.MESRefreshRecentDatasets = readRecentDatasets;
   initializeApp();
 })();
 
@@ -6094,58 +6117,37 @@ render();
   <script>
 (function () {
   "use strict";
-  var CONFIG_KEY = "mes-cloud-config-v1";
-  var AUTH_KEY = "mes-cloud-auth-v1";
-  var TABLE = "mes_daily_sync";
-  var DEFAULT_URL = "https://rewbfhiathnzstgfnfix.supabase.co";
-  var root = window;
-
+  var CONFIG_KEY = "mes-cloud-config-v1", AUTH_KEY = "mes-cloud-auth-v1";
+  var STATE_KEY = "mes-cloud-sync-state-v1", TABLE = "mes_daily_sync";
+  var DEFAULT_URL = "https://rewbfhiathnzstgfnfix.supabase.co", root = window;
   var style = document.createElement("style");
-  style.textContent = ".mes-cloud-layer{position:fixed;inset:0;z-index:1000;background:rgba(8,20,30,.72);display:grid;place-items:center;padding:16px}.mes-cloud-layer[hidden]{display:none!important}.mes-cloud-dialog{width:min(560px,100%);max-height:90vh;overflow:auto;background:#fff;border:1px solid #cbd9e1;border-radius:20px;padding:22px;box-shadow:0 20px 60px #07152366;color:#203848}.mes-cloud-dialog h2{margin:0 0 6px;color:#17364d}.mes-cloud-dialog p{line-height:1.5;color:#617787}.mes-cloud-dialog label{display:grid;gap:6px;margin:12px 0;color:#29485b;font-size:13px;font-weight:700}.mes-cloud-dialog input{width:100%;min-height:44px;border:1px solid #c6d5de;border-radius:10px;padding:9px 12px;background:#f8fbfc;color:#18374d}.mes-cloud-actions{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}.mes-cloud-actions button,.mes-cloud-close{min-height:42px;border:1px solid #bdd0dc;border-radius:10px;padding:8px 13px;background:#eaf3f7;color:#17364d;font-weight:800}.mes-cloud-actions button.mes-cloud-primary{background:#193d56;border-color:#193d56;color:#fff}.mes-cloud-actions button:disabled{opacity:.5}.mes-cloud-status{min-height:26px;padding:10px 12px;border-radius:10px;background:#f0f5f7;color:#334f61;overflow-wrap:anywhere}.mes-cloud-note{font-size:12px!important}.mes-cloud-top{display:flex;align-items:center;justify-content:space-between;gap:12px}.mes-cloud-dialog [hidden]{display:none!important}@media(max-width:520px){.mes-cloud-dialog{padding:16px}.mes-cloud-actions>*{flex:1 1 45%}}";
+  style.textContent = ".mes-cloud-layer{position:fixed;inset:0;z-index:1000;background:rgba(8,20,30,.72);display:grid;place-items:center;padding:16px}.mes-cloud-layer[hidden]{display:none!important}.mes-cloud-dialog{width:min(560px,100%);max-height:90vh;overflow:auto;background:#fff;border:1px solid #cbd9e1;border-radius:20px;padding:22px;box-shadow:0 20px 60px #07152366;color:#203848}.mes-cloud-dialog h2{margin:0 0 6px;color:#17364d}.mes-cloud-dialog p{line-height:1.5;color:#617787}.mes-cloud-dialog label{display:grid;gap:6px;margin:12px 0;color:#29485b;font-size:13px;font-weight:700}.mes-cloud-dialog input{width:100%;min-height:44px;border:1px solid #c6d5de;border-radius:10px;padding:9px 12px;background:#f8fbfc;color:#18374d}.mes-cloud-actions{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}.mes-cloud-actions button,.mes-cloud-close{min-height:42px;border:1px solid #bdd0dc;border-radius:10px;padding:8px 13px;background:#eaf3f7;color:#17364d;font-weight:800}.mes-cloud-actions button.mes-cloud-primary{background:#193d56;border-color:#193d56;color:#fff}.mes-cloud-actions button:disabled{opacity:.5}.mes-cloud-status{min-height:26px;padding:10px 12px;border-radius:10px;background:#f0f5f7;color:#334f61;overflow-wrap:anywhere}.mes-cloud-note{font-size:12px!important}.mes-cloud-top{display:flex;align-items:center;justify-content:space-between;gap:12px}.mes-cloud-dialog [hidden]{display:none!important}.mes-admin-banner{position:sticky;top:0;z-index:850;padding:12px 16px;background:#eaf6ef;color:#21583b;border-bottom:1px solid #b8d9c4;font:700 14px/1.45 Arial,sans-serif;text-align:center}@media(max-width:520px){.mes-cloud-dialog{padding:16px}.mes-cloud-actions>*{flex:1 1 45%}}";
   document.head.appendChild(style);
-
   if (window.MESSharedMode) return;
   var headerActions = document.querySelector(".header-actions");
   if (!headerActions) return;
   var openButton = document.createElement("button");
-  openButton.id = "cloudSyncHeaderButton";
-  openButton.className = "header-action";
-  openButton.type = "button";
-  openButton.textContent = "Cloud sync";
+  openButton.id = "cloudSyncHeaderButton"; openButton.className = "header-action";
+  openButton.type = "button"; openButton.textContent = "Cloud sync";
   openButton.setAttribute("aria-haspopup", "dialog");
   headerActions.insertBefore(openButton, document.getElementById("recentHeaderButton") || null);
-
-  var layer = document.createElement("div");
-  layer.className = "mes-cloud-layer";
-  layer.hidden = true;
-  layer.innerHTML = '<section class="mes-cloud-dialog" role="dialog" aria-modal="true" aria-labelledby="mesCloudTitle"><div class="mes-cloud-top"><div><p class="eyebrow">OPTIONAL · MANUAL TRANSFER</p><h2 id="mesCloudTitle">Cloud sync</h2></div><button type="button" class="mes-cloud-close" data-close>Close</button></div><p>Sign in once on this app. Upload saves a cloud copy; Restore brings that copy to this device. After the first upload, report and setting changes auto-sync when online. Copy shared link creates a read-only link anyone with the link can open. Upload replaces the cloud copy.</p><label>Supabase Project URL<input id="mesCloudUrl" type="url" autocomplete="url" inputmode="url" spellcheck="false"></label><label>Publishable key<input id="mesCloudKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"></label><div class="mes-cloud-actions"><button type="button" id="mesCloudSaveConfig">Save connection</button></div><hr><label>Email<input id="mesCloudEmail" type="email" autocomplete="username" inputmode="email"></label><label>Password<input id="mesCloudPassword" type="password" autocomplete="current-password"></label><div class="mes-cloud-actions"><button type="button" id="mesCloudSignIn" class="mes-cloud-primary">Sign in</button><button type="button" id="mesCloudSignUp">Create account</button><button type="button" id="mesCloudSignOut" hidden>Sign out</button></div><div class="mes-cloud-actions"><button type="button" id="mesCloudUpload" class="mes-cloud-primary" disabled>Upload to cloud</button><button type="button" id="mesCloudRestore" disabled>Restore from cloud</button><button type="button" id="mesCloudShare" disabled>Copy shared link</button></div><div id="mesCloudStatus" class="mes-cloud-status" role="status" aria-live="polite">Set connection details and sign in to continue.</div><p class="mes-cloud-note">Use only the Publishable key here. Never enter a Secret / service_role key. Each account can access only its own cloud backup.</p></section>';
+  var layer = document.createElement("div"); layer.className = "mes-cloud-layer"; layer.hidden = true;
+  layer.innerHTML = '<section class="mes-cloud-dialog" role="dialog" aria-modal="true" aria-labelledby="mesCloudTitle"><div class="mes-cloud-top"><div><p class="eyebrow">CLOUD · ADMIN</p><h2 id="mesCloudTitle">Cloud sync</h2></div><button type="button" class="mes-cloud-close" data-close>Close</button></div><p>After sign-in, reports and app settings sync automatically when online. Uploading an Excel report here sends it to your cloud account. Changes from another signed-in device are checked automatically. Reports are merged so an older device does not replace newer cloud data.</p><label>Supabase Project URL<input id="mesCloudUrl" type="url" autocomplete="url" inputmode="url" spellcheck="false"></label><label>Publishable key<input id="mesCloudKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"></label><div class="mes-cloud-actions"><button type="button" id="mesCloudSaveConfig">Save connection</button></div><hr><label>Email<input id="mesCloudEmail" type="email" autocomplete="username" inputmode="email"></label><label>Password<input id="mesCloudPassword" type="password" autocomplete="current-password"></label><div class="mes-cloud-actions"><button type="button" id="mesCloudSignIn" class="mes-cloud-primary">Sign in</button><button type="button" id="mesCloudSignUp">Create account</button><button type="button" id="mesCloudSignOut" hidden>Sign out</button></div><div class="mes-cloud-actions"><button type="button" id="mesCloudUpload" class="mes-cloud-primary" disabled>Sync now</button><button type="button" id="mesCloudRestore" disabled>Merge cloud data</button><button type="button" id="mesCloudShare" disabled>Copy shared link</button></div><div id="mesCloudStatus" class="mes-cloud-status" role="status" aria-live="polite">Set connection details and sign in to continue.</div><p class="mes-cloud-note">Use only the Publishable key here. Never enter a Secret / service_role key. Shared links are read-only unless the signed-in account owns that link.</p></section>';
   document.body.appendChild(layer);
-
-  var $ = function (id) { return document.getElementById(id); };
-  var statusNode = $("mesCloudStatus");
+  var $ = function (id) { return document.getElementById(id); }, statusNode = $("mesCloudStatus");
   function status(message) { statusNode.textContent = message; }
-  function readConfig() {
-    try { return JSON.parse(localStorage.getItem(CONFIG_KEY) || "{}"); } catch (_) { return {}; }
-  }
-  function readSession() {
-    try { return JSON.parse(localStorage.getItem(AUTH_KEY) || "null"); } catch (_) { return null; }
-  }
-  function setSession(value) {
-    if (value) localStorage.setItem(AUTH_KEY, JSON.stringify(value));
-    else localStorage.removeItem(AUTH_KEY);
-    refreshControls();
-  }
+  function parse(key, fallback) { try { return JSON.parse(localStorage.getItem(key) || ""); } catch (_) { return fallback; } }
+  function readConfig() { return parse(CONFIG_KEY, {}) || {}; }
+  function readSession() { return parse(AUTH_KEY, null); }
+  function readState() { var s = parse(STATE_KEY, null); return s && typeof s === "object" ? s : { reportClocks: {}, settingClocks: {}, deletedReports: {} }; }
+  function writeState(s) { localStorage.setItem(STATE_KEY, JSON.stringify(s)); }
+  function setSession(value) { if (value) localStorage.setItem(AUTH_KEY, JSON.stringify(value)); else localStorage.removeItem(AUTH_KEY); refreshControls(); }
   function projectUrl() { return String($("mesCloudUrl").value || "").trim().replace(/\/+$/, ""); }
   function publishableKey() { return String($("mesCloudKey").value || "").trim(); }
   function isSecretKey(key) {
     if (/^sb_secret_/i.test(key) || /service_role/i.test(key)) return true;
     var parts = key.split(".");
-    if (parts.length === 3) {
-      try {
-        var payload = JSON.parse(decodeURIComponent(escape(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")))));
-        if (payload && payload.role === "service_role") return true;
-      } catch (_) {}
-    }
+    if (parts.length === 3) try { var payload = JSON.parse(decodeURIComponent(escape(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))))); if (payload && payload.role === "service_role") return true; } catch (_) {}
     return false;
   }
   function saveConfig() {
@@ -6154,269 +6156,262 @@ render();
     if (parsed.protocol !== "https:" && parsed.hostname !== "localhost") throw new Error("Project URL must use HTTPS.");
     if (!key) throw new Error("Paste the Publishable key from Supabase.");
     if (isSecretKey(key)) throw new Error("That is a Secret key. Use the Publishable key only.");
-    localStorage.setItem(CONFIG_KEY, JSON.stringify({ url: url, key: key }));
-    return { url: url, key: key };
+    localStorage.setItem(CONFIG_KEY, JSON.stringify({ url: url, key: key })); return { url: url, key: key };
   }
-  function config() {
-    var c = readConfig();
-    if (!c.url || !c.key) throw new Error("Save the Project URL and Publishable key first.");
-    return c;
-  }
+  function config() { var c = readConfig(); if (!c.url || !c.key) throw new Error("Save the Project URL and Publishable key first."); return c; }
   function api(path) { return config().url + path; }
   async function responseJson(response) {
-    var body = null;
-    try { body = await response.json(); } catch (_) {}
-    if (!response.ok) {
-      var message = body && (body.msg || body.message || body.error_description || body.error);
-      if (response.status === 401) message = "Email or password was not accepted, or the session expired.";
-      throw new Error(message || ("Request failed (" + response.status + ")."));
-    }
+    var body = null; try { body = await response.json(); } catch (_) {}
+    if (!response.ok) { var message = body && (body.msg || body.message || body.error_description || body.error); if (response.status === 401) message = "Email or password was not accepted, or the session expired."; throw new Error(message || ("Request failed (" + response.status + ").")); }
     return body || {};
   }
   function rememberAuth(data) {
-    var session = {
-      access_token: data.access_token,
-      refresh_token: data.refresh_token,
-      expires_at: Number(data.expires_at) || Math.floor(Date.now() / 1000) + (Number(data.expires_in) || 3600),
-      user: data.user || (readSession() || {}).user
-    };
-    if (!session.access_token || !session.refresh_token) throw new Error("Supabase did not return a complete sign-in session.");
-    setSession(session);
-    return session;
+    var s = { access_token: data.access_token, refresh_token: data.refresh_token, expires_at: Number(data.expires_at) || Math.floor(Date.now() / 1000) + (Number(data.expires_in) || 3600), user: data.user || (readSession() || {}).user };
+    if (!s.access_token || !s.refresh_token) throw new Error("Supabase did not return a complete sign-in session."); setSession(s); return s;
   }
   async function currentSession() {
-    var session = readSession();
-    if (!session || !session.access_token) return null;
-    if (Number(session.expires_at || 0) < Math.floor(Date.now() / 1000) + 60) {
-      if (!session.refresh_token) { setSession(null); return null; }
-      var refreshResponse = await fetch(api("/auth/v1/token?grant_type=refresh_token"), {
-        method: "POST", headers: { "apikey": config().key, "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh_token: session.refresh_token })
-      });
-      try { session = rememberAuth(await responseJson(refreshResponse)); }
+    var s = readSession(); if (!s || !s.access_token) return null;
+    if (Number(s.expires_at || 0) < Math.floor(Date.now() / 1000) + 60) {
+      if (!s.refresh_token) { setSession(null); return null; }
+      try { s = rememberAuth(await responseJson(await fetch(api("/auth/v1/token?grant_type=refresh_token"), { method: "POST", headers: { apikey: config().key, "Content-Type": "application/json" }, body: JSON.stringify({ refresh_token: s.refresh_token }) }))); }
       catch (error) { setSession(null); throw error; }
     }
-    return session;
+    return s;
   }
   function withBusy(buttons, fn) {
     buttons.forEach(function (b) { b.disabled = true; });
     return Promise.resolve().then(fn).catch(function (error) { status(error.message || "Cloud action failed."); }).finally(function () { buttons.forEach(function (b) { b.disabled = false; }); refreshControls(); });
   }
   function refreshControls() {
-    var session = readSession();
-    var signedIn = !!(session && session.access_token);
-    $("mesCloudUpload").disabled = !signedIn;
-    $("mesCloudRestore").disabled = !signedIn;
-    $("mesCloudShare").disabled = !signedIn;
-    $("mesCloudSignOut").hidden = !signedIn;
-    $("mesCloudSignIn").disabled = signedIn;
-    $("mesCloudSignUp").disabled = signedIn;
+    var s = readSession(), signed = !!(s && s.access_token);
+    $("mesCloudUpload").disabled = !signed; $("mesCloudRestore").disabled = !signed; $("mesCloudShare").disabled = !signed;
+    $("mesCloudSignOut").hidden = !signed; $("mesCloudSignIn").disabled = signed; $("mesCloudSignUp").disabled = signed;
   }
   function openDialog() {
-    var c = readConfig(), session = readSession();
-    $("mesCloudUrl").value = c.url || DEFAULT_URL;
-    $("mesCloudKey").value = c.key || "";
-    $("mesCloudEmail").value = session && session.user && session.user.email || "";
-    $("mesCloudPassword").value = "";
-    layer.hidden = false;
-    layer.style.display = "grid";
-    document.body.classList.add("modal-open");
-    refreshControls();
-    status(session ? "Signed in on this device. Choose Upload or Restore." : "Set connection details and sign in to continue.");
+    var c = readConfig(), s = readSession(); $("mesCloudUrl").value = c.url || DEFAULT_URL; $("mesCloudKey").value = c.key || "";
+    $("mesCloudEmail").value = s && s.user && s.user.email || ""; $("mesCloudPassword").value = "";
+    layer.hidden = false; layer.style.display = "grid"; document.body.classList.add("modal-open"); refreshControls();
+    status(s ? "Signed in. Reports and settings sync automatically when this device is online." : "Set connection details and sign in to continue.");
   }
   function closeDialog() { layer.hidden = true; layer.style.display = "none"; document.body.classList.remove("modal-open"); }
-  openButton.addEventListener("click", openDialog);
-  layer.querySelector("[data-close]").addEventListener("click", closeDialog);
+  openButton.addEventListener("click", openDialog); layer.querySelector("[data-close]").addEventListener("click", closeDialog);
   layer.addEventListener("click", function (event) { if (event.target === layer) closeDialog(); });
   document.addEventListener("keydown", function (event) { if (event.key === "Escape" && !layer.hidden) closeDialog(); });
+  $("mesCloudSaveConfig").addEventListener("click", function () { try { saveConfig(); status("Connection saved on this device. Now sign in."); } catch (e) { status(e.message); } });
+  $("mesCloudSignUp").addEventListener("click", function () { withBusy([$("mesCloudSignUp"), $("mesCloudSignIn")], async function () {
+    var c = saveConfig(), email = $("mesCloudEmail").value.trim(), password = $("mesCloudPassword").value;
+    if (!email || !password) throw new Error("Enter your email and password."); if (password.length < 8) throw new Error("Use at least 8 characters for a new password.");
+    var r = await fetch(c.url + "/auth/v1/signup?redirect_to=" + encodeURIComponent(location.origin + location.pathname), { method: "POST", headers: { apikey: c.key, "Content-Type": "application/json" }, body: JSON.stringify({ email: email, password: password }) }), result = await responseJson(r);
+    if (result.access_token) { rememberAuth(result); status("Account created and signed in. Data sync will start shortly."); } else status("Account request sent. Confirm the account by email, then return here and sign in.");
+  }); });
+  $("mesCloudSignIn").addEventListener("click", function () { withBusy([$("mesCloudSignIn"), $("mesCloudSignUp")], async function () {
+    var c = saveConfig(), email = $("mesCloudEmail").value.trim(), password = $("mesCloudPassword").value;
+    if (!email || !password) throw new Error("Enter your email and password.");
+    var r = await fetch(c.url + "/auth/v1/token?grant_type=password", { method: "POST", headers: { apikey: c.key, "Content-Type": "application/json" }, body: JSON.stringify({ email: email, password: password }) });
+    rememberAuth(await responseJson(r)); $("mesCloudPassword").value = ""; status("Signed in. Syncing this device with cloud…"); await syncNow("Sign-in sync complete");
+  }); });
+  $("mesCloudSignOut").addEventListener("click", function () { withBusy([$("mesCloudSignOut")], async function () {
+    var s = readSession(); try { if (s && s.access_token) await fetch(api("/auth/v1/logout"), { method: "POST", headers: { apikey: config().key, Authorization: "Bearer " + s.access_token } }); } finally { setSession(null); }
+    status("Signed out on this device.");
+  }); });
 
-  $("mesCloudSaveConfig").addEventListener("click", function () {
-    try { saveConfig(); status("Connection saved on this device. Now sign in or create your account."); }
-    catch (error) { status(error.message); }
-  });
-  $("mesCloudSignUp").addEventListener("click", function () {
-    withBusy([$("mesCloudSignUp"), $("mesCloudSignIn")], async function () {
-      var c = saveConfig(), email = $("mesCloudEmail").value.trim(), password = $("mesCloudPassword").value;
-      if (!email || !password) throw new Error("Enter your email and password.");
-      if (password.length < 8) throw new Error("Use at least 8 characters for a new password.");
-      var response = await fetch(c.url + "/auth/v1/signup?redirect_to=" + encodeURIComponent(location.origin + location.pathname), { method: "POST", headers: { "apikey": c.key, "Content-Type": "application/json" }, body: JSON.stringify({ email: email, password: password }) });
-      var result = await responseJson(response);
-      if (result.access_token) { rememberAuth(result); status("Account created and signed in. You can upload this device's data to cloud."); }
-      else status("Account request sent. Check your email, confirm the account, then return to this app and sign in.");
-    });
-  });
-  $("mesCloudSignIn").addEventListener("click", function () {
-    withBusy([$("mesCloudSignIn"), $("mesCloudSignUp")], async function () {
-      var c = saveConfig(), email = $("mesCloudEmail").value.trim(), password = $("mesCloudPassword").value;
-      if (!email || !password) throw new Error("Enter your email and password.");
-      var response = await fetch(c.url + "/auth/v1/token?grant_type=password", { method: "POST", headers: { "apikey": c.key, "Content-Type": "application/json" }, body: JSON.stringify({ email: email, password: password }) });
-      rememberAuth(await responseJson(response));
-      status("Signed in. Choose Upload to save this device to cloud, or Restore to bring the cloud backup here.");
-    });
-  });
-  $("mesCloudSignOut").addEventListener("click", function () {
-    withBusy([$("mesCloudSignOut")], async function () {
-      var session = readSession();
-      try {
-        if (session && session.access_token) await fetch(api("/auth/v1/logout"), { method: "POST", headers: { "apikey": config().key, "Authorization": "Bearer " + session.access_token } });
-      } finally {
-        setSession(null);
-      }
-      status("Signed out on this device.");
-    });
-  });
-
+  function reportKey(ds) { return String(ds && (ds.fingerprint || ds.id) || ""); }
+  function reportTime(ds) { var t = Date.parse(ds && ds.savedAt || ""); return Number.isFinite(t) ? t : 0; }
+  function newer(a, b) { return (Number(a) || 0) > (Number(b) || 0); }
   async function makeSnapshot() {
-    var storage = root.MESStorage;
-    if (!storage) throw new Error("The saved report storage module is unavailable.");
-    await storage.init();
-    if (!storage.isPersistent()) throw new Error("This browser cannot access the saved report database. Open Recent Data once, then try again.");
-    var metadata = await storage.listMetadata(), reports = [];
-    for (var i = 0; i < metadata.length; i++) {
-      var dataset = await storage.getDataset(metadata[i].id);
-      if (dataset) reports.push(dataset);
-    }
+    var storage = root.MESStorage; if (!storage) throw new Error("Saved report storage is unavailable."); await storage.init();
+    if (!storage.isPersistent()) throw new Error("This browser cannot access saved report storage. Open Recent Data once, then try again.");
+    var meta = await storage.listMetadata(), reports = [];
+    for (var i = 0; i < meta.length; i++) { var ds = await storage.getDataset(meta[i].id); if (ds) reports.push(ds); }
     var localData = {};
-    for (var j = 0; j < localStorage.length; j++) {
-      var key = localStorage.key(j);
-      if (key && key.indexOf("mes-") === 0 && key !== CONFIG_KEY && key !== AUTH_KEY) localData[key] = localStorage.getItem(key);
-    }
-    var snapshot = { format: "mes-daily-cloud", schemaVersion: 1, savedAt: new Date().toISOString(), reports: reports, localData: localData };
-    var bytes = new Blob([JSON.stringify(snapshot)]).size;
-    if (bytes > 25 * 1024 * 1024) throw new Error("This backup is larger than 25 MB. Keep fewer old reports on this device and try again.");
-    return snapshot;
+    for (var j = 0; j < localStorage.length; j++) { var k = localStorage.key(j); if (k && k.indexOf("mes-") === 0 && k !== CONFIG_KEY && k !== AUTH_KEY && k !== STATE_KEY) localData[k] = localStorage.getItem(k); }
+    var state = readState(), snap = { format: "mes-daily-cloud", schemaVersion: 1, savedAt: new Date().toISOString(), reports: reports, localData: localData, reportClocks: state.reportClocks || {}, settingClocks: state.settingClocks || {}, deletedReports: state.deletedReports || {} };
+    if (new Blob([JSON.stringify(snap)]).size > 25 * 1024 * 1024) throw new Error("This backup is larger than 25 MB. Remove some old reports from this device and try again.");
+    return snap;
   }
-  async function getRemote(session) {
-    var url = api("/rest/v1/" + TABLE + "?select=data,updated_at,share_token&user_id=eq." + encodeURIComponent(session.user.id));
-    var response = await fetch(url, { headers: { "apikey": config().key, "Authorization": "Bearer " + session.access_token } });
-    var rows = await responseJson(response);
-    return rows && rows[0] || null;
+  async function getRemote(session, light) {
+    var select = light ? "updated_at" : "data,updated_at,share_token";
+    var url = api("/rest/v1/" + TABLE + "?select=" + select + "&user_id=eq." + encodeURIComponent(session.user.id));
+    var rows = await responseJson(await fetch(url, { headers: { apikey: config().key, Authorization: "Bearer " + session.access_token } })); return rows && rows[0] || null;
   }
-  $("mesCloudUpload").addEventListener("click", function () {
-    withBusy([$("mesCloudUpload"), $("mesCloudRestore")], async function () {
-      var session = await currentSession(); if (!session || !session.user || !session.user.id) throw new Error("Sign in again before uploading.");
-      var old = await getRemote(session);
-      if (old && !confirm("A cloud backup from " + new Date(old.updated_at).toLocaleString() + " already exists. Uploading replaces that cloud snapshot with this device's current data. Continue?")) return;
-      var snapshot = await makeSnapshot();
-      status("Uploading " + snapshot.reports.length + " report(s)…");
-      var response = await fetch(api("/rest/v1/" + TABLE + "?on_conflict=user_id"), {
-        method: "POST", headers: { "apikey": config().key, "Authorization": "Bearer " + session.access_token, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=minimal" },
-        body: JSON.stringify({ user_id: session.user.id, data: snapshot, updated_at: new Date().toISOString(), share_token: old && old.share_token || null })
-      });
-      await responseJson(response);
-      status("Cloud backup saved: " + snapshot.reports.length + " report(s), " + new Date(snapshot.savedAt).toLocaleString() + ". This does not delete local data.");
-    });
-  });
-  $("mesCloudRestore").addEventListener("click", function () {
-    withBusy([$("mesCloudUpload"), $("mesCloudRestore")], async function () {
-      var session = await currentSession(); if (!session || !session.user || !session.user.id) throw new Error("Sign in again before restoring.");
-      var row = await getRemote(session);
-      if (!row || !row.data || row.data.format !== "mes-daily-cloud" || row.data.schemaVersion !== 1) throw new Error("No compatible cloud backup was found for this account.");
-      var backup = row.data;
-      if (!Array.isArray(backup.reports) || !backup.localData || typeof backup.localData !== "object") throw new Error("The cloud backup is incomplete; local data was not changed.");
-      if (!confirm("Restore the cloud backup saved " + new Date(row.updated_at).toLocaleString() + "? It will add or update " + backup.reports.length + " report(s), replace this device's saved MES settings and date selections, then reload the app.")) return;
-      var storage = root.MESStorage;
-      if (!storage) throw new Error("The saved report storage module is unavailable.");
-      await storage.init();
-      if (!storage.isPersistent()) throw new Error("This browser cannot access the saved report database.");
-      for (var i = 0; i < backup.reports.length; i++) {
-        var dataset = backup.reports[i];
-        if (!dataset || !dataset.id || !(dataset.fullParsed || dataset.parsed)) throw new Error("A report in the cloud backup is invalid; local data was not changed.");
-      }
-      status("Restoring " + backup.reports.length + " report(s)…");
-      for (var j = 0; j < backup.reports.length; j++) await storage.putDataset(backup.reports[j], { writeFullData: true });
-      var oldData = {};
-      for (var k = 0; k < localStorage.length; k++) { var oldKey = localStorage.key(k); if (oldKey && oldKey.indexOf("mes-") === 0 && oldKey !== CONFIG_KEY && oldKey !== AUTH_KEY) oldData[oldKey] = localStorage.getItem(oldKey); }
-      try {
-        Object.keys(oldData).forEach(function (key) { localStorage.removeItem(key); });
-        Object.keys(backup.localData).forEach(function (key) { if (key.indexOf("mes-") === 0 && key !== CONFIG_KEY && key !== AUTH_KEY && typeof backup.localData[key] === "string") localStorage.setItem(key, backup.localData[key]); });
-      } catch (error) {
-        Object.keys(backup.localData).forEach(function (key) { if (key.indexOf("mes-") === 0 && key !== CONFIG_KEY && key !== AUTH_KEY) localStorage.removeItem(key); });
-        Object.keys(oldData).forEach(function (key) { localStorage.setItem(key, oldData[key]); });
-        throw new Error("The backup could not fit this browser's settings storage. Previous settings were restored.");
-      }
-      status("Restore complete. Reloading…");
-      location.reload();
-    });
-  });
-
-  async function writeCloudSnapshot(session, snapshot, shareToken) {
-    var response = await fetch(api("/rest/v1/" + TABLE + "?on_conflict=user_id"), {
-      method: "POST", headers: { "apikey": config().key, "Authorization": "Bearer " + session.access_token, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=minimal" },
-      body: JSON.stringify({ user_id: session.user.id, data: snapshot, updated_at: new Date().toISOString(), share_token: shareToken || null })
-    });
-    await responseJson(response);
+  function canonical(v) {
+    if (Array.isArray(v)) return "[" + v.map(canonical).join(",") + "]";
+    if (v && typeof v === "object") return "{" + Object.keys(v).sort().map(function (k) { return JSON.stringify(k) + ":" + canonical(v[k]); }).join(",") + "}";
+    return JSON.stringify(v);
   }
-  $("mesCloudShare").addEventListener("click", function () {
-    withBusy([$("mesCloudShare"), $("mesCloudUpload"), $("mesCloudRestore")], async function () {
-      var session = await currentSession();
-      if (!session || !session.user || !session.user.id) throw new Error("Sign in before creating a shared link.");
-      var old = await getRemote(session);
-      if (old && !confirm("This will update the cloud copy with the latest data from this app. Anyone with the link can view its reports and settings. Continue?")) return;
-      var snapshot = await makeSnapshot();
-      var token = old && old.share_token || (crypto.randomUUID ? crypto.randomUUID() : Array.from(crypto.getRandomValues(new Uint8Array(16))).map(function (b) { return b.toString(16).padStart(2, "0"); }).join(""));
-      status("Updating cloud copy and preparing your link…");
-      await writeCloudSnapshot(session, snapshot, token);
-      var shareUrl = "https://yayang46.github.io/mes-daily/?share=" + encodeURIComponent(token) + "#mesShareKey=" + encodeURIComponent(config().key);
-      try { await navigator.clipboard.writeText(shareUrl); status("Shared link copied. Anyone with it can view the latest uploaded data."); }
-      catch (_) { window.prompt("Copy this read-only shared link", shareUrl); status("Link is ready to copy. Anyone with it can view the latest uploaded data."); }
+  function snapshotBody(s) {
+    return { format: "mes-daily-cloud", schemaVersion: 1, reports: (s.reports || []).slice().sort(function (a, b) { return reportKey(a).localeCompare(reportKey(b)); }), localData: s.localData || {}, reportClocks: s.reportClocks || {}, settingClocks: s.settingClocks || {}, deletedReports: s.deletedReports || {} };
+  }
+  function mergeSnapshots(local, remote) {
+    remote = remote && remote.format === "mes-daily-cloud" ? remote : { reports: [], localData: {} };
+    var merged = { format: "mes-daily-cloud", schemaVersion: 1, savedAt: new Date().toISOString(), reports: [], localData: {}, reportClocks: {}, settingClocks: {}, deletedReports: {} };
+    var rc = Object.assign({}, remote.reportClocks || {}), lc = local.reportClocks || {};
+    var tomb = Object.assign({}, remote.deletedReports || {});
+    Object.keys(local.deletedReports || {}).forEach(function (k) { if (newer(local.deletedReports[k], tomb[k])) tomb[k] = local.deletedReports[k]; });
+    var reports = {};
+    (remote.reports || []).concat(local.reports || []).forEach(function (ds) {
+      if (!ds || !(ds.fullParsed || ds.parsed)) return;
+      var key = reportKey(ds); if (!key) return;
+      var isLocal = (local.reports || []).indexOf(ds) !== -1;
+      var time = Number((isLocal ? lc : rc)[key]) || reportTime(ds);
+      var old = reports[key];
+      if (!old || newer(time, old.time) || (time === old.time && !isLocal && old.isLocal)) reports[key] = { data: ds, time: time, isLocal: isLocal };
     });
-  });
-
-  var autoUploadTimer = null, autoUploadBusy = false, autoUploadAgain = false;
-  async function autoUpload() {
-    if (window.MESSharedMode || !readSession()) return;
-    if (autoUploadBusy) { autoUploadAgain = true; return; }
-    autoUploadBusy = true;
+    Object.keys(reports).forEach(function (key) { var item = reports[key], deleted = Number(tomb[key]) || 0; if (deleted >= item.time && deleted > 0) return; merged.reports.push(item.data); merged.reportClocks[key] = item.time || reportTime(item.data); });
+    merged.deletedReports = tomb;
+    var keys = new Set(Object.keys(remote.localData || {}).concat(Object.keys(local.localData || {})));
+    keys.forEach(function (key) {
+      if (key === CONFIG_KEY || key === AUTH_KEY || key === STATE_KEY) return;
+      var lv = local.localData && local.localData[key], rv = remote.localData && remote.localData[key];
+      var lt = Number((local.settingClocks || {})[key]) || 0, rt = Number((remote.settingClocks || {})[key]) || 0;
+      if (lt > rt && Object.prototype.hasOwnProperty.call(local.localData || {}, key)) merged.localData[key] = lv;
+      else if (lt > rt) { /* A newer local deletion wins over an older cloud value. */ }
+      else if (Object.prototype.hasOwnProperty.call(remote.localData || {}, key)) merged.localData[key] = rv;
+      else if (Object.prototype.hasOwnProperty.call(local.localData || {}, key)) merged.localData[key] = lv;
+      merged.settingClocks[key] = Math.max(lt, rt);
+    });
+    return merged;
+  }
+  var applyingRemote = false;
+  async function applySnapshot(snap) {
+    var storage = root.MESStorage; await storage.init(); if (!storage.isPersistent()) throw new Error("This browser cannot access saved report storage.");
+    var localMeta = await storage.listMetadata(), localByKey = {};
+    for (var i = 0; i < localMeta.length; i++) { var ds = await storage.getDataset(localMeta[i].id); if (ds) localByKey[reportKey(ds)] = ds; }
+    var incoming = {}; (snap.reports || []).forEach(function (ds) { incoming[reportKey(ds)] = ds; });
+    applyingRemote = true;
     try {
-      var session = await currentSession();
-      if (!session || !session.user || !session.user.id) return;
-      var snapshot = await makeSnapshot(), old = await getRemote(session);
-      await writeCloudSnapshot(session, snapshot, old && old.share_token);
-      status("Auto-synced " + snapshot.reports.length + " report(s) to cloud.");
-    } catch (error) { status("Cloud auto-sync paused: " + (error.message || error)); }
-    finally { autoUploadBusy = false; if (autoUploadAgain) { autoUploadAgain = false; scheduleAutoUpload(); } }
+      for (var j = 0; j < localMeta.length; j++) {
+        var old = await storage.getDataset(localMeta[j].id), key = reportKey(old), tomb = Number((snap.deletedReports || {})[key]) || 0;
+        if (tomb && tomb >= (Number((snap.reportClocks || {})[key]) || reportTime(old))) await storage.deleteDataset(old.id);
+        else if (key && incoming[key] && incoming[key].id !== old.id && key === reportKey(old)) await storage.deleteDataset(old.id);
+      }
+      for (var k = 0; k < snap.reports.length; k++) await storage.putDataset(snap.reports[k], { writeFullData: true });
+      var targetKeys = new Set(Object.keys(snap.localData || {}));
+      for (var n = localStorage.length - 1; n >= 0; n--) { var name = localStorage.key(n); if (name && name.indexOf("mes-") === 0 && name !== CONFIG_KEY && name !== AUTH_KEY && name !== STATE_KEY && !targetKeys.has(name)) localStorage.removeItem(name); }
+      Object.keys(snap.localData || {}).forEach(function (name) { if (name.indexOf("mes-") === 0 && name !== CONFIG_KEY && name !== AUTH_KEY && name !== STATE_KEY && typeof snap.localData[name] === "string" && localStorage.getItem(name) !== snap.localData[name]) localStorage.setItem(name, snap.localData[name]); });
+      writeState({ reportClocks: snap.reportClocks || {}, settingClocks: snap.settingClocks || {}, deletedReports: snap.deletedReports || {} });
+      if (typeof root.MESRefreshRecentDatasets === "function") await root.MESRefreshRecentDatasets();
+    } finally { applyingRemote = false; }
   }
-  function scheduleAutoUpload() {
-    if (window.MESSharedMode || !readSession()) return;
-    clearTimeout(autoUploadTimer);
-    autoUploadTimer = setTimeout(autoUpload, 1800);
+  async function conditionalWrite(session, snap, row, requestedToken) {
+    var body = { user_id: session.user.id, data: snap, updated_at: new Date().toISOString(), share_token: requestedToken || row && row.share_token || null };
+    if (row && row.updated_at) {
+      var url = api("/rest/v1/" + TABLE + "?user_id=eq." + encodeURIComponent(session.user.id) + "&updated_at=eq." + encodeURIComponent(row.updated_at));
+      var res = await fetch(url, { method: "PATCH", headers: { apikey: config().key, Authorization: "Bearer " + session.access_token, "Content-Type": "application/json", Prefer: "return=representation" }, body: JSON.stringify({ data: snap, updated_at: body.updated_at, share_token: body.share_token }) });
+      var rows = await responseJson(res); return Array.isArray(rows) && rows.length > 0;
+    }
+    var insert = await fetch(api("/rest/v1/" + TABLE + "?on_conflict=user_id"), { method: "POST", headers: { apikey: config().key, Authorization: "Bearer " + session.access_token, "Content-Type": "application/json", Prefer: "resolution=ignore-duplicates,return=representation" }, body: JSON.stringify(body) });
+    var inserted = await responseJson(insert); return Array.isArray(inserted) && inserted.length > 0;
   }
+  async function syncNow(message) {
+    var session = await currentSession(); if (!session || !session.user || !session.user.id) throw new Error("Sign in before syncing.");
+    var local = await makeSnapshot(), row = null, merged = null, changed = false, saved = false;
+    for (var attempt = 0; attempt < 4; attempt++) {
+      row = await getRemote(session); var remote = row && row.data;
+      if (row && row.updated_at) lastRemoteTime = row.updated_at;
+      if (remote && (remote.format !== "mes-daily-cloud" || !Array.isArray(remote.reports))) throw new Error("The cloud backup format is not recognized; it was left untouched.");
+      merged = mergeSnapshots(local, remote); changed = !remote || canonical(snapshotBody(merged)) !== canonical(snapshotBody(remote));
+      await applySnapshot(merged);
+      if (!changed) { saved = true; break; }
+      if (await conditionalWrite(session, merged, row)) { saved = true; break; }
+      local = await makeSnapshot();
+    }
+    if (!saved) throw new Error("Cloud changed repeatedly while syncing. Your local reports remain safe; try Sync now again.");
+    var count = merged.reports.length; status((message || "Sync complete") + ": " + count + " report(s). Cloud and this device are up to date.");
+    return { count: count, changed: changed };
+  }
+  $("mesCloudUpload").addEventListener("click", function () { withBusy([$("mesCloudUpload"), $("mesCloudRestore"), $("mesCloudShare")], function () { return syncNow("Sync complete"); }); });
+  $("mesCloudRestore").addEventListener("click", function () { withBusy([$("mesCloudUpload"), $("mesCloudRestore"), $("mesCloudShare")], function () { return syncNow("Cloud merge complete"); }); });
+  $("mesCloudShare").addEventListener("click", function () { withBusy([$("mesCloudShare"), $("mesCloudUpload"), $("mesCloudRestore")], async function () {
+    var session = await currentSession(); if (!session || !session.user || !session.user.id) throw new Error("Sign in before creating a shared link.");
+    var synced = await syncNow("Cloud updated"), row = await getRemote(session), token = row && row.share_token;
+    if (!token) {
+      token = crypto.randomUUID ? crypto.randomUUID() : Array.from(crypto.getRandomValues(new Uint8Array(16))).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+      var linked = false;
+      for (var attempt = 0; attempt < 4 && !linked; attempt++) { linked = await conditionalWrite(session, row.data, row, token); if (!linked) { row = await getRemote(session); if (row && row.share_token) { token = row.share_token; linked = true; } } }
+      if (!linked) throw new Error("Could not save the shared-link token. Your cloud data is safe; try Copy shared link again.");
+    }
+    if (!token) throw new Error("Cloud sync worked, but no share token was returned. Ask Supabase to run the share-link setup SQL first.");
+    var baseUrl = location.protocol === "https:" && location.hostname === "yayang46.github.io" ? location.origin + location.pathname : "https://yayang46.github.io/mes-daily/";
+    var shareUrl = baseUrl + "?share=" + encodeURIComponent(token) + "#mesShareKey=" + encodeURIComponent(config().key);
+    try { await navigator.clipboard.writeText(shareUrl); status("Shared link copied. It opens the latest cloud data in read-only mode."); } catch (_) { window.prompt("Copy this shared link", shareUrl); status("Link is ready to copy. It opens read-only data."); }
+    return synced;
+  }); });
+
+  var syncTimer = null, syncBusy = false, syncAgain = false, lastRemoteTime = "";
+  async function autoSync() {
+    if (window.MESSharedMode || !readSession() || !navigator.onLine || document.hidden) return;
+    if (syncBusy) { syncAgain = true; return; } syncBusy = true;
+    try {
+      var result = await syncNow("Auto-sync complete");
+      if (adminRoute && result.changed && !sessionStorage.getItem("mes-admin-cloud-loaded")) { sessionStorage.setItem("mes-admin-cloud-loaded", "1"); location.reload(); }
+    }
+    catch (e) { status("Auto-sync paused: " + (e.message || e)); }
+    finally { syncBusy = false; if (syncAgain) { syncAgain = false; scheduleSync(400); } }
+  }
+  function scheduleSync(delay) { if (window.MESSharedMode || !readSession()) return; clearTimeout(syncTimer); syncTimer = setTimeout(autoSync, delay == null ? 1700 : delay); }
+  async function checkRemote() {
+    if (!readSession() || !navigator.onLine || document.hidden) return;
+    try { var session = await currentSession(), row = await getRemote(session, true); if (row && row.updated_at && row.updated_at !== lastRemoteTime) { var prior = lastRemoteTime; lastRemoteTime = row.updated_at; if (prior) await autoSync(); } }
+    catch (e) { status("Cloud check paused: " + (e.message || e)); }
+  }
+  function clock() { return Date.now(); }
   try {
-    var originalPutDataset = root.MESStorage && root.MESStorage.putDataset;
-    if (originalPutDataset) root.MESStorage.putDataset = function () {
-      var result = originalPutDataset.apply(this, arguments);
-      return Promise.resolve(result).then(function (value) { scheduleAutoUpload(); return value; });
+    var storage = root.MESStorage, originalPut = storage && storage.putDataset, originalDelete = storage && storage.deleteDataset;
+    if (originalPut) storage.putDataset = function () {
+      var dataset = arguments[0], result = originalPut.apply(this, arguments);
+      return Promise.resolve(result).then(function (value) {
+        if (!applyingRemote && dataset) { var s = readState(), k = reportKey(dataset); if (k) { s.reportClocks = s.reportClocks || {}; s.deletedReports = s.deletedReports || {}; s.reportClocks[k] = clock(); delete s.deletedReports[k]; writeState(s); scheduleSync(); } }
+        return value;
+      });
     };
-    var originalSetItem = root.Storage && root.Storage.prototype.setItem;
-    if (originalSetItem) root.Storage.prototype.setItem = function (key, value) {
-      var result = originalSetItem.call(this, key, value);
-      if (this === root.localStorage && String(key).indexOf("mes-") === 0 && key !== CONFIG_KEY && key !== AUTH_KEY) scheduleAutoUpload();
+    if (originalDelete) storage.deleteDataset = function () {
+      var id = arguments[0], get = storage.getDataset; return Promise.resolve(get.call(storage, id)).then(function (dataset) {
+        var result = originalDelete.call(storage, id);
+        return Promise.resolve(result).then(function (value) { if (!applyingRemote && dataset) { var s = readState(), k = reportKey(dataset); s.deletedReports = s.deletedReports || {}; s.deletedReports[k] = clock(); writeState(s); scheduleSync(); } return value; });
+      });
+    };
+    var proto = root.Storage && root.Storage.prototype, nativeSet = proto && proto.setItem, nativeRemove = proto && proto.removeItem, nativeClear = proto && proto.clear;
+    if (nativeSet) proto.setItem = function (key, value) {
+      var result = nativeSet.call(this, key, value);
+      if (this === root.localStorage && !applyingRemote && String(key).indexOf("mes-") === 0 && key !== CONFIG_KEY && key !== AUTH_KEY && key !== STATE_KEY) { var s = readState(); s.settingClocks = s.settingClocks || {}; s.settingClocks[key] = clock(); writeState(s); scheduleSync(); }
       return result;
     };
-    root.addEventListener("online", scheduleAutoUpload);
+    if (nativeRemove) proto.removeItem = function (key) {
+      var exists = this === root.localStorage && localStorage.getItem(key) !== null, result = nativeRemove.call(this, key);
+      if (exists && !applyingRemote && String(key).indexOf("mes-") === 0 && key !== CONFIG_KEY && key !== AUTH_KEY && key !== STATE_KEY) { var s = readState(); s.settingClocks = s.settingClocks || {}; s.settingClocks[key] = clock(); writeState(s); scheduleSync(); }
+      return result;
+    };
+    if (nativeClear) proto.clear = function () { var keys = []; if (this === root.localStorage) for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf("mes-") === 0 && k !== CONFIG_KEY && k !== AUTH_KEY && k !== STATE_KEY) keys.push(k); } var result = nativeClear.call(this); if (keys.length && !applyingRemote) { var s = readState(); s.settingClocks = s.settingClocks || {}; keys.forEach(function (k) { s.settingClocks[k] = clock(); }); writeState(s); scheduleSync(); } return result; };
   } catch (_) {}
-
+  root.addEventListener("online", function () { scheduleSync(500); checkRemote(); });
+  root.addEventListener("focus", checkRemote);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) { checkRemote(); scheduleSync(500); } });
+  setInterval(checkRemote, 45000);
   function restoreEmailConfirmation() {
     if (!location.hash || location.hash.length < 2) return;
-    var params = new URLSearchParams(location.hash.slice(1));
-    var access = params.get("access_token"), refresh = params.get("refresh_token");
+    var params = new URLSearchParams(location.hash.slice(1)), access = params.get("access_token"), refresh = params.get("refresh_token");
     if (params.get("error_description")) { status(decodeURIComponent(params.get("error_description").replace(/\+/g, " "))); history.replaceState(null, "", location.pathname + location.search); return; }
-    if (access && refresh) {
-      var cfg = readConfig();
-      if (!cfg.url || !cfg.key) { history.replaceState(null, "", location.pathname + location.search); openDialog(); status("Email confirmed. Save the Project URL and Publishable key on this device, then sign in."); return; }
-      var expiresIn = Number(params.get("expires_in")) || 3600;
-      var session = { access_token: access, refresh_token: refresh, expires_at: Math.floor(Date.now() / 1000) + expiresIn, user: null };
-      fetch(cfg.url.replace(/\/+$/, "") + "/auth/v1/user", { headers: { "apikey": cfg.key, "Authorization": "Bearer " + access } }).then(function (r) { return responseJson(r); }).then(function (user) { session.user = user; setSession(session); history.replaceState(null, "", location.pathname + location.search); openDialog(); status("Email confirmed. Signed in on this device."); }).catch(function () { history.replaceState(null, "", location.pathname + location.search); openDialog(); status("Email link received. Now sign in with your email and password."); });
+    if (access && refresh) { var cfg = readConfig(); if (!cfg.url || !cfg.key) { history.replaceState(null, "", location.pathname + location.search); openDialog(); status("Email confirmed. Save the Project URL and Publishable key, then sign in."); return; }
+      var s = { access_token: access, refresh_token: refresh, expires_at: Math.floor(Date.now() / 1000) + (Number(params.get("expires_in")) || 3600), user: null };
+      fetch(cfg.url.replace(/\/+$/, "") + "/auth/v1/user", { headers: { apikey: cfg.key, Authorization: "Bearer " + access } }).then(responseJson).then(function (user) { s.user = user; setSession(s); history.replaceState(null, "", location.pathname + location.search); openDialog(); status("Email confirmed. Syncing…"); scheduleSync(300); }).catch(function () { history.replaceState(null, "", location.pathname + location.search); openDialog(); status("Email link received. Sign in with your email and password."); });
     }
   }
-  var saved = readConfig();
-  if (!saved.url || !saved.key) { saved.url = saved.url || DEFAULT_URL; }
-  refreshControls();
-  restoreEmailConfirmation();
-  root.MESCloudSync = { open: openDialog, snapshot: makeSnapshot };
+  refreshControls(); restoreEmailConfirmation();
+  var adminRoute = new URLSearchParams(location.search).get("admin") === "1";
+  if (adminRoute) {
+    var banner = document.createElement("div"); banner.className = "mes-admin-banner";
+    var bannerText = document.createElement("span"); bannerText.textContent = "Admin workspace · Excel uploads sync to cloud when online. "; banner.appendChild(bannerText);
+    var uploadButton = document.createElement("button"); uploadButton.type = "button"; uploadButton.textContent = "Upload report"; uploadButton.style = "margin:5px;padding:8px 14px;border:0;border-radius:8px;background:#193d56;color:white;font-weight:700";
+    uploadButton.addEventListener("click", function () { var input = document.getElementById("excelFile"); if (input) input.click(); }); banner.appendChild(uploadButton);
+    var header = document.querySelector(".app-header"); if (header) header.insertAdjacentElement("afterend", banner);
+    openButton.textContent = "Cloud status";
+    setTimeout(function () { openDialog(); }, 500);
+  }
+  if (!adminRoute) sessionStorage.removeItem("mes-admin-cloud-loaded");
+  if (readSession()) setTimeout(function () { autoSync(); }, 800);
+  root.MESCloudSync = { open: openDialog, snapshot: makeSnapshot, sync: syncNow, merge: mergeSnapshots, canonical: canonical };
 })();
-
   </script>
 </body>
 </html>
