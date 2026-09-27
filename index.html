@@ -8,7 +8,7 @@
   <meta name="application-name" content="MES Daily Web">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>MES Daily Graft v1.8.53</title>
+  <title>MES Daily Graft v1.8.54</title>
   <style>
 :root {
   --navy: #17324d;
@@ -3204,7 +3204,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
 </script>
   <style>
-#paretoTabPanel{background:#101b24;color:#e1e8ee;border-radius:24px;overflow:hidden;min-width:0;max-width:100%;padding:0 16px 18px;color-scheme:dark}
+#paretoTabPanel{background:transparent;color:var(--ink);border-radius:0;overflow:visible;min-width:0;max-width:100%;padding:0;color-scheme:light}
 .pareto-legend .threshold{height:0;background:none;border-top:2px dashed #f2c96d}
 #paretoPlot .pareto-80-label{fill:#f2c96d}
 #paretoPriority{background:#293d47;border-left:3px solid #f2c96d;border-radius:8px;padding:12px;color:#f2c96d;font-size:14px;line-height:1.6}
@@ -3215,17 +3215,17 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 #paretoTable .pareto-cutoff-row td{border-bottom:2px dashed #f2c96d}
 #paretoTable .pareto-cutoff-note{color:#f2c96d}
 #paretoTable .pareto-hours{font-size:11px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;line-height:1.4}
-#paretoTabPanel .analysis-heading{background:linear-gradient(120deg,#132f43,#1d4b6b);margin:0 -16px 18px;padding:24px}
-#paretoTabPanel .analysis-heading h2{color:#e1e8ee}#paretoTabPanel .eyebrow{color:#a8bac7}
-#paretoTabPanel .graft-picker,.pareto-card{background:#1b2935;border:1px solid #3b4d5a;border-radius:20px;padding:18px;margin:16px 0;min-width:0}
-#paretoTabPanel .graft-date{background:#253846;color:#e1e8ee}#paretoTabPanel .graft-picker-actions button{background:#294459;color:#e1e8ee;border-color:#486174}
+#paretoTabPanel .analysis-heading{background:linear-gradient(120deg,#17324d,#244761);margin:0 0 18px;padding:24px;border-radius:20px}
+#paretoTabPanel .analysis-heading h2{color:#fff}#paretoTabPanel .eyebrow{color:#d4e4ed}
+#paretoTabPanel .graft-picker,.pareto-card{background:#fff;border:1px solid #d5e1e8;border-radius:20px;padding:18px;margin:16px 0;min-width:0;color:#243746;box-shadow:0 8px 22px rgba(23,50,77,.06)}
+#paretoTabPanel .graft-date{background:#f1f5f7;color:#243746}#paretoTabPanel .graft-picker-actions button{background:#eaf3f7;color:#193d56;border-color:#c8d8e1}
 #paretoDates{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-height:330px;overflow:auto}#paretoDates h4{grid-column:1/-1;margin:10px 0 4px}#paretoDates .graft-date{font-size:13px;padding:8px;gap:7px}#paretoDates input{flex-shrink:0}
 #paretoStatus:empty{display:none}#paretoStatus{color:#edb9bb;font-size:13px}
-.pareto-card h3{font-size:19px;margin:0 0 10px;color:#e1e8ee}.pareto-sub{color:#aabac7;line-height:1.5;margin:6px 0 16px}.pareto-range{display:block;margin-top:6px;color:#e1e8ee;font-weight:600}
-.pareto-legend{display:flex;flex-wrap:wrap;gap:18px;font-size:13px;color:#aabac7;margin:20px 0}.pareto-legend span{display:flex;align-items:center;gap:8px}.pareto-legend i{width:22px;height:9px;background:#ef8492;display:inline-block}.pareto-legend .line{height:3px;background:#c7afe7}
-#paretoPlot{width:100%;min-width:0;contain:inline-size;touch-action:pan-y}#paretoPlot svg{display:block;max-width:100%}#paretoPlot text{fill:#afbfca;font-size:11px}#paretoDetail{color:#d7c6ed;font-size:13px;line-height:1.6;overflow-wrap:anywhere}#paretoDetail:empty{display:none}
-.pareto-total{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px;border-radius:14px;background:#223b4d;margin-top:18px;font-size:14px}.pareto-total strong{color:#e1e8ee}
-#paretoTable{width:100%;border-collapse:collapse;table-layout:fixed;font-size:14px}#paretoTable th,#paretoTable td{padding:14px 5px;border-bottom:1px solid #3c4e5c;background:transparent;color:#e1e8ee;vertical-align:middle;white-space:normal}#paretoTable th{font-size:12px;font-weight:500;color:#aabac7;text-align:left}#paretoTable th:first-child{width:7%}#paretoTable th:nth-child(2){width:53%}#paretoTable th:nth-child(3){width:17%}#paretoTable th:nth-child(4){width:23%}#paretoTable td:nth-child(n+3),#paretoTable th:nth-child(n+3){text-align:right;font-variant-numeric:tabular-nums}#paretoTable strong{display:block;font-weight:600;overflow-wrap:anywhere;line-height:1.5}#paretoTable small{display:block;color:#aabac7;font-size:12px;margin-top:6px}#paretoEmpty{color:#aabac7}
+#paretoTabPanel .pareto-card h3{font-size:19px;margin:0 0 10px;color:#17324d}.pareto-sub{color:#647985;line-height:1.5;margin:6px 0 16px}.pareto-range{display:block;margin-top:6px;color:#243746;font-weight:600}
+.pareto-legend{display:flex;flex-wrap:wrap;gap:18px;font-size:13px;color:#647985;margin:20px 0}.pareto-legend span{display:flex;align-items:center;gap:8px}.pareto-legend i{width:22px;height:9px;background:#ef8492;display:inline-block}.pareto-legend .line{height:3px;background:#9b82bd}
+#paretoPlot{width:100%;min-width:0;contain:inline-size;touch-action:pan-y}#paretoPlot svg{display:block;max-width:100%}#paretoPlot text{fill:#647985;font-size:11px}#paretoDetail{color:#674b78;font-size:13px;line-height:1.6;overflow-wrap:anywhere}#paretoDetail:empty{display:none}
+.pareto-total{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px;border-radius:14px;background:#eaf4f8;margin-top:18px;font-size:14px}.pareto-total strong{color:#17324d}
+#paretoTable{width:100%;border-collapse:collapse;table-layout:fixed;font-size:14px}#paretoTable th,#paretoTable td{padding:14px 5px;border-bottom:1px solid #dce6ed;background:transparent;color:#243746;vertical-align:middle;white-space:normal}#paretoTable th{font-size:12px;font-weight:600;color:#647985;text-align:left}#paretoTable th:first-child{width:7%}#paretoTable th:nth-child(2){width:53%}#paretoTable th:nth-child(3){width:17%}#paretoTable th:nth-child(4){width:23%}#paretoTable td:nth-child(n+3),#paretoTable th:nth-child(n+3){text-align:right;font-variant-numeric:tabular-nums}#paretoTable strong{display:block;font-weight:600;overflow-wrap:anywhere;line-height:1.5}#paretoTable small{display:block;color:#647985;font-size:12px;margin-top:6px}#paretoEmpty{color:#647985}
 @media(max-width:380px){#paretoTabPanel{padding:0 10px 12px}.pareto-card,#paretoTabPanel .graft-picker{padding:12px}#paretoDates .graft-date{font-size:11px}#paretoTable{font-size:12px}#paretoTable th{font-size:11px}}
 
 </style>
@@ -5994,7 +5994,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 </script>
   <style>
 #mePage2{min-width:0}#mePage2 .lt-card{background:white;border:1px solid #d5e1e8;border-radius:20px;padding:20px;margin:15px 0;min-width:0;overflow:hidden}#mePage2 .lt-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}#mePage2 .lt-actions{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}#mePage2 button{padding:12px 18px;border:1px solid #c8d8e1;border-radius:12px;background:#eaf3f7;color:#193d56;font-weight:bold}#mePage2 button[aria-pressed=true]{background:#193d56;color:white}#mePage2 h3{font-size:18px}#mePage2 strong{font-size:26px}#mePage2 p,#mePage2 small{font-size:14px;color:#617787;overflow-wrap:anywhere}#mePage2 small{display:block}#mePage2 .lt-scroll{overflow:auto}#mePage2 table{border-collapse:collapse;width:100%;min-width:530px}#mePage2 td,#mePage2 th{padding:12px;text-align:left;border-bottom:1px solid #dce6ed}#mePage2 svg{width:100%;height:auto;display:block}#mePage2 label{padding:10px;background:#eef4f7;border-radius:10px}#mePage2 input[type=checkbox]{margin-right:10px}#mePage2 .lt-value{background:#eaf4f7;padding:12px;border-radius:10px}#mePage2 input[type=file],#mePage2 select{max-width:100%}@media(max-width:500px){#mePage2 .lt-grid{gap:8px}#mePage2 .lt-card{padding:12px}#mePage2 strong{font-size:21px}#mePage2 h3{font-size:15px}}
-#mePage2 .graft-reading-value{font-size:24px}#mePage2 .graft-total strong,#mePage2 .graft-trend strong,#mePage2 .graft-occurrence strong{font-size:14px}#mePage2 .graft-bubble{background:#17364d;color:white;padding:12px;min-width:min(230px,100%)}#mePage2 .graft-bubble small,#mePage2 .graft-bubble strong{color:white;font-size:13px}#mePage2 .graft-bubble strong{font-size:18px}#mePage2 .graft-plot svg text{font-size:13px}#mePage2 .graft-total{background:#eaf4f8}#mePage2 .graft-trend{background:#f4edf8}#mePage2 .graft-trend strong{color:#855c99}
+#mePage2 .graft-reading-value{font-size:24px}#mePage2 .graft-total strong,#mePage2 .graft-trend strong,#mePage2 .graft-occurrence strong{font-size:14px}#mePage2 .graft-bubble{background:#17364d;color:white;padding:12px;min-width:min(230px,100%)}#mePage2 .graft-bubble small,#mePage2 .graft-bubble strong{color:white;font-size:13px}#mePage2 .graft-bubble strong{font-size:18px}#mePage2 .graft-plot svg text{font-size:13px}#mePage2 .graft-total{background:#eaf4f8}#mePage2 .graft-trend{background:#f4edf8}#mePage2 .graft-trend strong{color:#855c99}#mePage2 .graft-total{flex-wrap:wrap}#mePage2 .graft-total-value{white-space:nowrap}#mePage2 .graft-oee-summary{margin-left:auto;font-size:12px;color:#516a79;text-align:right}#mePage2 .graft-oee-summary strong{display:inline;font-size:14px;color:#17324d;font-weight:700}#mePage2 .graft-oee-trend{display:block;margin-top:4px;color:#674b78;font-size:12px;font-weight:600}#mePage2 .graft-trend-value{display:block}
 
 </style>
   <script>
@@ -6053,6 +6053,12 @@ function analysis(body){const reports=selected();body.innerHTML='<article class=
 }
 function drawLossChart(chartHost,reports,metric,i){
  const series=reports.map(r=>({r,m:metrics(r)[i]})),valid=series.filter(p=>Number.isFinite(p.m.value));
+ const tracksOeeLoss=metric.key==='planned'||metric.key==='unplanned';
+ const lossSeries=series.map(p=>({r:p.r,value:p.r.categories[metric.key]?.loss})).filter(p=>Number.isFinite(p.value));
+ const meanLoss=lossSeries.length?lossSeries.reduce((a,p)=>a+p.value,0)/lossSeries.length:null;
+ const formatPp=v=>(v>0?'+':'')+num(v*100)+' pp/day';
+ let lossFit=null;
+ if(lossSeries.length>1){const origin=Date.parse(lossSeries[0].r.start),pts=lossSeries.map(p=>[(Date.parse(p.r.start)-origin)/86400000,p.value]),mx=pts.reduce((a,p)=>a+p[0],0)/pts.length,my=pts.reduce((a,p)=>a+p[1],0)/pts.length,den=pts.reduce((a,p)=>a+(p[0]-mx)**2,0);if(den){const slope=pts.reduce((a,p)=>a+(p[0]-mx)*(p[1]-my),0)/den;lossFit={slope};}}
  const first=Date.parse(reports[0].start),last=Date.parse(reports.at(-1).start),span=last-first;
  const x=r=>span?48+(Date.parse(r.start)-first)/span*500:298;
  const duration=categories.some(c=>c[0]===metric.key)||metric.key==='runtime';
@@ -6064,7 +6070,7 @@ function drawLossChart(chartHost,reports,metric,i){
  const fitted=fit?pp.map(p=>fit.at(p[0])):[],high=Math.max(metric.unit==='%'?1:1,...valid.map(p=>p.m.value),...fitted)*1.12,low=Math.min(0,...fitted),y=v=>205-(v-low)/(high-low)*165;
  const trend=fit?(Math.abs(fit.slope)<1e-10?'Flat →':fit.slope>0?'Increasing ↗':'Decreasing ↘')+' · '+(fit.slope>0?'+':'')+num(fit.slope*(metric.unit==='%'?100:1))+' '+(metric.unit==='%'?'pp/day':'min/day'):'N/A · needs two distinct dates';
  const totalEvents=series.every(p=>Number.isFinite(events(p)))?series.reduce((a,p)=>a+events(p),0):null;
- const card=document.createElement('article');card.className='lt-card graft-card';card.innerHTML='<div class="graft-card-heading"><div class="graft-title"><h3>'+metric.title+'</h3><div class="graft-range">'+date(reports[0])+' → '+date(reports.at(-1))+'</div></div><div class="graft-reading" aria-live="polite"><strong class="graft-reading-value"></strong><span class="graft-reading-date"></span></div></div><div class="graft-total"><span>'+(duration?'Total':'Average of source values')+' · selected dates</span><strong>'+display(aggregate)+'</strong></div><div class="graft-trend"><span>Trendline</span><strong>'+trend+'</strong></div><div class="graft-occurrence"><span>Total occurrences</span><strong>'+num(totalEvents)+' times</strong></div><div class="graft-legend"><span><i class="graft-legend-solid" style="background:#35748a"></i>Actual</span><span><i class="graft-legend-dash"></i>Linear trendline</span></div><div class="graft-plot" tabindex="0" role="group" aria-label="'+metric.title+'; tap a point or use arrow keys"><svg viewBox="0 0 580 265" role="img" aria-label="'+metric.title+' comparison"></svg></div>';
+ const card=document.createElement('article');card.className='lt-card graft-card';card.innerHTML='<div class="graft-card-heading"><div class="graft-title"><h3>'+metric.title+'</h3><div class="graft-range">'+date(reports[0])+' → '+date(reports.at(-1))+'</div></div><div class="graft-reading" aria-live="polite"><strong class="graft-reading-value"></strong><span class="graft-reading-date"></span></div></div><div class="graft-total"><span>'+(duration?'Total':'Average of source values')+' · selected dates</span><strong class="graft-total-value">'+display(aggregate)+'</strong>'+(tracksOeeLoss?'<span class="graft-oee-summary">Average OEE Loss · selected reports <strong>'+pct(meanLoss)+'</strong></span>':'')+'</div><div class="graft-trend"><span>Trendline</span><strong class="graft-trend-value">'+trend+(tracksOeeLoss?'<small class="graft-oee-trend">OEE Loss · '+(lossFit?formatPp(lossFit.slope):'N/A · needs two valid dates')+'</small>':'')+'</strong></div><div class="graft-occurrence"><span>Total occurrences</span><strong>'+num(totalEvents)+' times</strong></div><div class="graft-legend"><span><i class="graft-legend-solid" style="background:#35748a"></i>Actual</span><span><i class="graft-legend-dash"></i>Linear trendline</span></div><div class="graft-plot" tabindex="0" role="group" aria-label="'+metric.title+'; tap a point or use arrow keys"><svg viewBox="0 0 580 265" role="img" aria-label="'+metric.title+' comparison"></svg></div>';
  const svg=card.querySelector('svg'),plot=card.querySelector('.graft-plot'),ns='http://www.w3.org/2000/svg';
  function mark(tag,attrs,text){const n=document.createElementNS(ns,tag);Object.entries(attrs).forEach(([k,v])=>n.setAttribute(k,v));if(text!==undefined)n.textContent=text;svg.append(n);return n;}
  mark('text',{x:8,y:20,fill:'#617787'},metric.unit);
@@ -6081,7 +6087,6 @@ function drawLossChart(chartHost,reports,metric,i){
 function exportPdf(backup){try{const list=backup?state.reports:selected();if(!list.length)throw Error('Select at least one report.');const sections=[];for(const r of list){sections.push(root.MESFullPDF.table(r.name+' · '+r.start+' to '+r.end,['Metric','Value','Info'],metrics(r).map(m=>({Metric:m.title,Value:m.display,Info:m.info||'System Status'}))));for(const [k,title] of categories){const c=r.categories[k];if(c)sections.push(root.MESFullPDF.table(title,['Detail','Events','Minutes','Hours','OEE Loss','MTBF','MTTR'],c.details.map(d=>({Detail:d.label,Events:num(d.events),Minutes:num(d.minutes),Hours:num(d.minutes==null?null:d.minutes/60),'OEE Loss':pct(d.loss),MTBF:num(d.mtbf),MTTR:num(d.mttr)}))));}sections.push(root.MESFullPDF.table('Raw workbook rows',['Row','Values'],r.raw.map((row,i)=>({Row:i+1,Values:row.filter(v=>v!==null).join(' | ')}))));}root.MESPDF.downloadReportPdf({title:backup?'Page 2 Loss Tree Backup':'Page 2 Loss Tree Report',generatedAt:new Date().toLocaleString(),sections,backup:backup?{format:'MES-Loss-Tree-backup',...state}:undefined},backup?'MES-Page2-Backup.pdf':'MES-Page2-Report.pdf');}catch(e){document.getElementById('ltMessage').textContent=e.message;}}
 render();
 })(typeof window==='undefined'?globalThis:window);
-
 </script>
   <script>
 (function () {
